@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Performance Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: linear-gradient(135deg, rgba(173, 216, 230, 0.8), rgba(240, 248, 255, 0.9));
+            backdrop-filter: blur(12px);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: auto; 
+            padding: 20px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(15px);
+            text-align: center;
+        }
+        input { margin-bottom: 20px; }
+        .chart-container { 
+            margin-top: 30px;
+            padding: 40px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(12px);
+            width: 80%;
+            min-height: 400px; /* Ensuring space for title */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Restaurant Performance Dashboard</h2>
+        <input type="file" id="fileInput" accept=".json">
+        
+        <div id="charts">
+            <div class="chart-container" id="ratingDistribution"></div>
+            <div class="chart-container" id="onlineVsDinein"></div>
+            <div class="chart-container" id="costDistribution"></div>
+            <div class="chart-container" id="restaurantType"></div>
+            <div class="chart-container" id="votesVsRating"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = JSON.parse(e.target.result);
+                    generateDashboard(data);
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function generateDashboard(data) {
+            let ratings = [];
+            let onlineOrders = { "Online Order": 0, "Dine-in Only": 0 };
+            let costs = [];
+            let restaurantTypes = {};
+            let votesVsRating = [];
+            let ratingCounts = {};
+
+            data.forEach(restaurant => {
+                let rating = parseFloat(restaurant.rate);
+                ratings.push(rating);
+                if (restaurant.online_order === "Yes") {
+                    onlineOrders["Online Order"]++;
+                } else {
+                    onlineOrders["Dine-in Only"]++;
+                }
+                costs.push(restaurant["approx_cost(for two people)"]);
+                restaurantTypes[restaurant["listed_in(type)"]] = (restaurantTypes[restaurant["listed_in(type)"]] || 0) + 1;
+                votesVsRating.push({ x: restaurant.votes, y: rating });
+
+                ratingCounts[rating] = (ratingCounts[rating] || 0) + 1;
+            });
+
+            // Convert ratingCounts to sorted arrays
+            let ratingValues = Object.keys(ratingCounts).map(Number).sort((a, b) => a - b);
+            let ratingFrequencies = ratingValues.map(r => ratingCounts[r]);
+
+            // 1. Ratings Distribution (Bar Chart for Better Readability)
+            Plotly.newPlot('ratingDistribution', [{
+                x: ratingValues,
+                y: ratingFrequencies,
+                type: 'bar'
+            }], { title: 'Ratings Distribution (Bar Chart)', titlefont: { size: 18 } });
+
+            // 2. Online Orders vs. Dine-in (Improved Layout & Spacing)
+            Plotly.newPlot('onlineVsDinein', [{
+                labels: Object.keys(onlineOrders),
+                values: Object.values(onlineOrders),
+                type: 'pie',
+                marker: { colors: ['#1f77b4', '#ff7f0e'] },
+                textinfo: "label+percent"
+            }], { 
+                title: 'Online Orders vs. Dine-in',
+                titlefont: { size: 18 },
+                margin: { t: 50, b: 50, l: 50, r: 50 }
+            });
+
+            // 3. Cost Distribution
+            Plotly.newPlot('costDistribution', [{
+                y: costs,
+                type: 'box'
+            }], { title: 'Cost for Two People Distribution', titlefont: { size: 18 } });
+
+            // 4. Restaurant Type Popularity
+            Plotly.newPlot('restaurantType', [{
+                x: Object.keys(restaurantTypes),
+                y: Object.values(restaurantTypes),
+                type: 'bar'
+            }], { title: 'Restaurant Type Popularity', titlefont: { size: 18 } });
+
+            // 5. Votes vs. Rating Relationship
+            Plotly.newPlot('votesVsRating', [{
+                x: votesVsRating.map(a => a.x),
+                y: votesVsRating.map(a => a.y),
+                mode: 'markers',
+                type: 'scatter'
+            }], { title: 'Votes vs. Rating Relationship', titlefont: { size: 18 } });
+        }
+    </script>
+</body>
+</html>
